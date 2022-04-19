@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -e
+
+#echo "Hello gh-gprl!"
+
+# Snippets to help get started:
+
+# Determine if an executable is in the PATH
+# if ! type -p ruby >/dev/null; then
+#   echo "Ruby not found on the system" >&2
+#   exit 1
+# fi
+
+# Pass arguments through to another command
+# gh issue list "$@" -R cli/cli
+
+# Using the gh api command to retrieve and format information
+#QUERY='
+#query($endCursor: String) {
+#  viewer {
+#    repositories(first: 100, after: $endCursor) {
+#      nodes {
+#        nameWithOwner
+#        stargazerCount
+#      }
+#    }
+#  }
+#}
+#'
+QUERY='
+{
+  search(first: 100, type: ISSUE, query: "author:ingshtrom state:open is:pr org:docker") {
+    issueCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        ... on PullRequest {
+          updatedAt
+          createdAt
+          title
+          url,
+          repository {
+            name
+          }
+        }
+      }
+    }
+  }
+}
+'
+TEMPLATE='
+{{- range $pr := .data.search.edges -}}
+  {{- printf "%s - %v\n" $pr.node.title $pr.node.url -}}
+{{- end -}}
+'
+exec gh api graphql -f query="${QUERY}" --paginate --template="${TEMPLATE}"
