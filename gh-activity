@@ -1,35 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-#echo "Hello gh-gprl!"
+unset PAGER
 
-# Snippets to help get started:
 
-# Determine if an executable is in the PATH
-# if ! type -p ruby >/dev/null; then
-#   echo "Ruby not found on the system" >&2
-#   exit 1
-# fi
-
-# Pass arguments through to another command
-# gh issue list "$@" -R cli/cli
-
-# Using the gh api command to retrieve and format information
-#QUERY='
-#query($endCursor: String) {
-#  viewer {
-#    repositories(first: 100, after: $endCursor) {
-#      nodes {
-#        nameWithOwner
-#        stargazerCount
-#      }
-#    }
-#  }
-#}
-#'
 MY_PRS_QUERY='
 {
-  search(first: 100, type: ISSUE, query: "author:@me state:open is:pr org:docker") {
+  getUserPullRequests: search(first: 100, type: ISSUE, query: "author:ingshtrom state:open is:pr org:docker") {
     issueCount
     pageInfo {
       hasNextPage
@@ -42,6 +19,28 @@ MY_PRS_QUERY='
           createdAt
           title
           url,
+          isDraft,
+          repository {
+            name
+          }
+        }
+      }
+    }
+  }
+  getBotPullRequets: search(first: 100, type: ISSUE, query: "author:app/infra-create-pr-exec-action state:open is:pr org:docker") {
+    issueCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        ... on PullRequest {
+          updatedAt
+          createdAt
+          title
+          url,
+          isDraft,
           repository {
             name
           }
@@ -50,16 +49,28 @@ MY_PRS_QUERY='
     }
   }
 }
+
 '
 MY_PRS_TEMPLATE='
-{{- range $pr := .data.search.edges -}}
-  {{- printf "%s - %v\n" $pr.node.title $pr.node.url -}}
+{{- range $pr := .data.getUserPullRequests.edges -}}
+  {{- if $pr.node.isDraft -}}
+    {{- (printf "DRAFT => %s - %v\n" $pr.node.title $pr.node.url) | color "black+d" -}}
+  {{- else -}}
+    {{- (printf "         %s - %v\n" $pr.node.title $pr.node.url) | color "green+b" -}}
+  {{- end -}}
+{{- end -}}
+{{- range $pr := .data.getBotPullRequets.edges -}}
+  {{- if $pr.node.isDraft -}}
+    {{- (printf "DRAFT => %s - %v\n" $pr.node.title $pr.node.url) | color "black+d" -}}
+  {{- else -}}
+    {{- (printf "         %s - %v\n" $pr.node.title $pr.node.url) | color "green+b" -}}
+  {{- end -}}
 {{- end -}}
 '
 
 MY_REVIEWS_QUERY='
 {
-  search(first: 100, type: ISSUE, query: "is:pr is:open sort:updated-desc draft:false review-requested:@me org:docker") {
+  search(first: 100, type: ISSUE, query: "is:pr is:open sort:updated-desc review-requested:@me org:docker") {
     issueCount
     pageInfo {
       hasNextPage
@@ -72,6 +83,7 @@ MY_REVIEWS_QUERY='
           createdAt
           title
           url,
+          isDraft,
           repository {
             name
           }
@@ -83,10 +95,13 @@ MY_REVIEWS_QUERY='
 '
 MY_REVIEWS_TEMPLATE='
 {{- range $pr := .data.search.edges -}}
-  {{- printf "%s - %v\n" $pr.node.title $pr.node.url -}}
+  {{- if $pr.node.isDraft -}}
+    {{- (printf "DRAFT => %s - %v\n" $pr.node.title $pr.node.url) | color "black+d" -}}
+  {{- else -}}
+    {{- (printf "         %s - %v\n" $pr.node.title $pr.node.url) | color "green+b" -}}
+  {{- end -}}
 {{- end -}}
 '
-
 
 echo "--------------------------------------------------"
 echo;
